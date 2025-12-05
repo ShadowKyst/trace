@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=db
+      - DB_USER=trace
+      - DB_PASSWORD=trace_secret
+      - DB_NAME=trace_db
+      - DB_PORT=5432
+    depends_on:
+      - db
+    restart: on-failure
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=trace
+      - POSTGRES_PASSWORD=trace_secret
+      - POSTGRES_DB=trace_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Автоматически накатим миграцию при старте
+      - ./migrations/001_init.sql:/docker-entrypoint-initdb.d/init.sql
+
+volumes:
+  postgres_data:
