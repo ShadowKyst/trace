@@ -1,14 +1,21 @@
 :root {
-  --bg-primary: #09090b;   /* Почти черный */
-  --bg-secondary: #18181b; /* Темно-серый для панелей */
-  --text-main: #e4e4e7;
-  --text-muted: #a1a1aa;
-  --accent: #8b5cf6;       /* Neon Purple */
-  --accent-glow: rgba(139, 92, 246, 0.5);
-  --border: #27272a;
+  /* Palette inspired by the design */
+  --bg-deep: #030305;      /* Глубокий черный */
+  --bg-surface: #0e0e11;   /* Чуть светлее для панелей */
   
-  --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  --text-main: #ffffff;
+  --text-muted: #8a8a93;
+  
+  --primary: #6366f1;      /* Indigo Neon */
+  --primary-glow: rgba(99, 102, 241, 0.4);
+  --secondary: #a855f7;    /* Purple Neon */
+  
+  --glass-bg: rgba(20, 20, 25, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-highlight: rgba(255, 255, 255, 0.03);
+
   --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
 }
 
 * {
@@ -18,50 +25,33 @@
 }
 
 body {
-  background-color: var(--bg-primary);
+  background-color: var(--bg-deep);
   color: var(--text-main);
   font-family: var(--font-sans);
   min-height: 100vh;
-  overflow-x: hidden;
-  -webkit-font-smoothing: antialiased;
+  overflow: hidden; /* Чтобы скролл был только внутри редактора */
+  
+  /* Ambient Background Glow */
+  background-image: 
+    radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.08), transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.08), transparent 25%);
+  background-attachment: fixed;
+}
+
+/* Glassmorphism Utility Class */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
 }
 
 /* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-::-webkit-scrollbar-track {
-  background: var(--bg-primary); 
-}
-::-webkit-scrollbar-thumb {
-  background: var(--border); 
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--accent); 
-}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 
-/* Utility classes */
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 1rem;
-}
-
-.btn {
-  background: var(--accent);
-  color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  font-family: var(--font-sans);
-}
-
-.btn:hover {
-  box-shadow: 0 0 15px var(--accent-glow);
-  transform: translateY(-1px);
-}
+/* Buttons Reset */
+button { font-family: var(--font-sans); }

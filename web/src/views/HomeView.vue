@@ -3,6 +3,15 @@ import { ref, watch, onMounted, onUnmounted, computed } from 'vue'; // UPDATED: 
 import { useRoute, useRouter } from 'vue-router';
 import { Codemirror } from 'vue-codemirror';
 import { oneDark } from '@codemirror/theme-one-dark';
+import { 
+  Settings, 
+  Save, 
+  Plus, 
+  ChevronDown, 
+  Copy, 
+  Lock 
+} from 'lucide-vue-next';
+
 import api from '../services/api';
 
 // UPDATED: Импорты
@@ -10,6 +19,7 @@ import { getExtensionByName } from '../config/languages';
 import CommandPalette from '../components/CommandPalette.vue';
 import SettingsModal from '../components/SettingsModal.vue';
 import PasswordPrompt from '../components/PasswordPrompt.vue';
+import PasteCreatedModal from '../components/PasteCreatedModal.vue';
 
 // --- State ---
 const content = ref('');
@@ -37,15 +47,18 @@ const extensions = computed(() => {
   return [oneDark, langExt];
 });
 
+const showCreatedModal = ref(false);
+const createdPasteUrl = ref('');
+const createdPasteBurn = ref(false);
+
 // --- Logic ---
 
 const savePaste = async () => {
   if (!content.value.trim()) return;
   isSaving.value = true;
-  statusMessage.value = 'Saving...';
+  statusMessage.value = 'Securing data...'; // Более "хакерский" текст
   
   try {
-    // UPDATED: Передаем объект настроек
     const paste = await api.createPaste({
       content: content.value,
       language: languageName.value,
@@ -53,8 +66,18 @@ const savePaste = async () => {
       password: settings.value.password,
       burn: settings.value.burn
     });
-    await router.push({ name: 'view', params: { id: paste.id } });
-    statusMessage.value = 'Saved!';
+    
+    // НОВАЯ ЛОГИКА:
+    createdPasteUrl.value = `${window.location.origin}/${paste.id}`;
+    createdPasteBurn.value = settings.value.burn ?? false;
+    
+    // Очищаем редактор, чтобы не сохранили дважды то же самое
+    newPaste(); 
+    
+    // Показываем окно успеха
+    showCreatedModal.value = true;
+    statusMessage.value = 'Data secured';
+    
   } catch (e) {
     console.error(e);
     statusMessage.value = 'Error saving';
@@ -164,40 +187,61 @@ onUnmounted(() => window.removeEventListener('keydown', handleGlobalKeydown));
 
 <template>
   <div class="layout">
-    <header class="navbar">
-      <!-- ... Brand ... -->
-      <div class="brand" @click="newPaste">
-        <span class="logo-text">TRACE</span>
-        <span class="status" v-if="statusMessage">:: {{ statusMessage }}</span>
-      </div>
+    
+    <!-- Floating Header -->
+    <header class="navbar-container">
+      <div class="glass-panel navbar">
+        
+        <!-- Logo Area -->
+        <div class="brand" @click="newPaste">
+          <div class="logo-box">TRACE</div> <!-- Лого как на скрине -->
+        </div>
 
-      <div class="actions">
-        <!-- Кнопка языка -->
-        <button class="btn-text" @click="openPalette" title="Cmd+K">
-          {{ languageName }}
-        </button>
+        <!-- Central Info (Filename / Status) -->
+        <div class="status-bar">
+           <!-- Можно выводить имя файла или статус -->
+           <span v-if="statusMessage" class="status-text">{{ statusMessage }}</span>
+           <span v-else class="file-name">untitled.txt</span>
+        </div>
+        
+        <!-- Actions -->
+        <div class="actions">
+          <!-- Language Selector -->
+          <button class="btn-ghost" @click="openPalette" title="Change Language">
+            {{ languageName }}
+            <ChevronDown :size="14" class="icon-right" />
+          </button>
 
-        <!-- Кнопка настроек (только в режиме редактирования) -->
-        <button v-if="!isReadOnly" class="btn-icon" @click="isSettingsOpen = true" title="Settings">
-          ⚙️
-        </button>
-      
-        <button v-if="!isReadOnly" class="btn save-btn" @click="savePaste" :disabled="isSaving">
-          {{ isSaving ? 'SAVING...' : 'SAVE' }}
-        </button>
-        <button v-else class="btn new-btn" @click="newPaste">NEW</button>
+          <!-- Settings -->
+          <button v-if="!isReadOnly" class="btn-icon" @click="isSettingsOpen = true">
+            <Settings :size="18" />
+          </button>
+
+          <!-- Save / New Button -->
+          <div class="divider"></div>
+          
+          <button v-if="!isReadOnly" class="btn-primary" @click="savePaste" :disabled="isSaving">
+            <Save :size="16" class="icon-left" v-if="!isSaving"/>
+            <span>{{ isSaving ? 'Saving...' : 'Save' }}</span>
+          </button>
+          
+          <button v-else class="btn-primary" @click="newPaste">
+            <Plus :size="16" class="icon-left"/>
+            <span>New</span>
+          </button>
+        </div>
       </div>
     </header>
 
-    <main class="editor-container">
+    <main class="editor-wrap">
       <!-- Показываем промпт пароля ВМЕСТО редактора, если нужно -->
       <PasswordPrompt v-if="showPasswordPrompt" @submit="handlePasswordSubmit" />
       
       <codemirror
         v-else
         v-model="content"
-        placeholder="// Paste your code here..."
-        :style="{ height: '100%', fontSize: '14px' }"
+        placeholder="// Type something..."
+        :style="{ height: '100%', fontSize: '14px', backgroundColor: 'transparent' }"
         :autofocus="true"
         :indent-with-tab="true"
         :tab-size="2"
@@ -220,95 +264,146 @@ onUnmounted(() => window.removeEventListener('keydown', handleGlobalKeydown));
       @close="isSettingsOpen = false"
       @apply="applySettings"
     />
+    <PasteCreatedModal
+      :is-open="showCreatedModal"
+      :url="createdPasteUrl"
+      :is-burn="createdPasteBurn"
+      @close="showCreatedModal = false"
+    />
   </div>
 </template>
 
 <style scoped>
-.btn-icon {
-  background: transparent;
-  border: none;
-  font-size: 1.2rem;
-  cursor: pointer;
-  margin-right: 1rem;
-  padding: 0.2rem;
-  border-radius: 4px;
-  transition: background 0.2s;
-}
-.btn-icon:hover { background: rgba(255,255,255,0.1); }
-
-.btn-text {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  padding: 0.4rem 0.8rem;
-  border-radius: 4px;
-  margin-right: 1rem;
-  cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-}
-.btn-text:hover {
-  color: var(--text-main);
-  border-color: var(--text-muted);
-}
-
 .layout {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: var(--bg-primary);
+  position: relative;
+  /* Добавляем отступы, чтобы редактор не прилипал к краям, как на макете */
+  padding: 80px 20px 20px 20px; 
+}
+
+/* Floating Navbar Container */
+.navbar-container {
+  position: absolute;
+  top: 20px;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  z-index: 10;
+  padding: 0 1rem;
 }
 
 .navbar {
-  height: 60px;
   display: flex;
   align-items: center;
+  gap: 1.5rem;
+  padding: 0.5rem 0.5rem 0.5rem 1rem;
+  border-radius: 12px;
+  min-width: 600px; /* Ширина островка */
+  max-width: 100%;
   justify-content: space-between;
-  padding: 0 1.5rem;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
 }
 
-.brand {
+/* Logo Box */
+.logo-box {
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  color: white;
+  font-family: var(--font-mono);
+  font-weight: bold;
+  font-size: 0.9rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  letter-spacing: 1px;
+}
+
+.status-bar {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.divider {
+  width: 1px;
+  height: 20px;
+  background: var(--glass-border);
+  margin: 0 0.5rem;
+}
+
+/* Buttons */
+.btn-ghost {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  padding: 6px 10px;
+  border-radius: 6px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 6px;
+  transition: all 0.2s;
 }
-
-.logo-text {
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 1.2rem;
-  letter-spacing: -1px;
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text-main);
 }
 
-.status {
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
+.btn-icon {
+  background: transparent;
+  border: none;
   color: var(--text-muted);
-  animation: pulse 2s infinite;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  transition: color 0.2s;
+}
+.btn-icon:hover { color: var(--text-main); }
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 15px var(--primary-glow);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px var(--primary-glow);
+}
+.btn-primary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
-.editor-container {
-  flex: 1; /* Занимает всё оставшееся место */
+.editor-wrap {
+  flex: 1;
+  border-radius: 12px;
   overflow: hidden;
+  /* Тонкая рамка вокруг редактора */
+  border: 1px solid var(--glass-border); 
+  background: rgba(0,0,0,0.2); 
 }
 
-/* Переопределяем стили CodeMirror, чтобы убрать белые рамки */
-:deep(.cm-editor) {
-  height: 100%;
-  background-color: var(--bg-primary);
-}
-:deep(.cm-gutters) {
-  background-color: var(--bg-primary);
-  border-right: 1px solid var(--border);
-}
-
-@keyframes pulse {
-  0% { opacity: 0.6; }
-  50% { opacity: 1; }
-  100% { opacity: 0.6; }
-}
+/* Переопределяем фон CodeMirror, чтобы он был прозрачным */
+:deep(.cm-editor) { background-color: transparent !important; }
+:deep(.cm-gutters) { background-color: transparent !important; border-right: 1px solid rgba(255,255,255,0.05); }
 </style>

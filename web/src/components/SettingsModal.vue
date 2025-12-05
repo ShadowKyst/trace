@@ -165,4 +165,29 @@ input[type="password"]:focus, select:focus {
 .btn.primary { background: var(--accent); color: white; }
 .btn.secondary { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
 .btn.secondary:hover { color: var(--text-main); border-color: var(--text-muted); }
+
+select {
+  appearance: none; /* Убираем системный стиль */
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1em;
+  padding-right: 2.5rem;
+  background-color: var(--bg-primary); /* Явно задаем фон самого селекта */
+  color: var(--text-main);
+}
+
+select option {
+  background-color: #18181b !important; /* var(--bg-secondary) хардкодом для надежности */
+  color: #ffffff !important;
+  padding: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  select {
+    background-color: var(--bg-primary);
+    color: white;
+  }
+}
 </style>
