@@ -1,6 +1,8 @@
 services:
   app:
     build: .
+    ports:
+      - "8080:8080"
     environment:
       - DB_HOST=db
       - DB_USER=trace
@@ -11,22 +13,17 @@ services:
       - db
     restart: on-failure
 
-  web:
-    build: ./web
-    ports:
-      - "3000:80" # На хосте приложение будет доступно на localhost:3000
-    depends_on:
-      - app
-    restart: always
-
   db:
     image: postgres:16-alpine
     environment:
       - POSTGRES_USER=trace
       - POSTGRES_PASSWORD=trace_secret
       - POSTGRES_DB=trace_db
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Автоматически накатим миграцию при старте
       - ./migrations/001_init.sql:/docker-entrypoint-initdb.d/init.sql
 
 volumes:

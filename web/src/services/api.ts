@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Создаем инстанс с базовыми настройками
 const apiClient = axios.create({
-  baseURL: 'http://localhost:8080/api/v1', // Адрес нашего Go сервера
+  baseURL: '/api/v1',  // Адрес нашего Go сервера
   headers: {
     'Content-Type': 'application/json',
   },
