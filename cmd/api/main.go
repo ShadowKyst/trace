@@ -27,6 +27,7 @@ func main() {
 	dbName := getEnv("DB_NAME", "trace_db")
 
 	// 2. Database Connection
+	// 2. Database Connection
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
 		dbUser, dbPass, dbHost, dbPort, dbName)
 
@@ -36,11 +37,20 @@ func main() {
 	}
 	defer db.Close()
 
-	// Проверка соединения
+	// RETRY LOGIC: Ждем базу данных до 30 секунд
+	log.Println("Connecting to database...")
+	for i := 0; i < 15; i++ {
+		if err := db.Ping(); err == nil {
+			log.Println("Successfully connected to PostgreSQL")
+			break
+		}
+		log.Printf("Database not ready, retrying in 2s... (%d/15)", i+1)
+		time.Sleep(2 * time.Second)
+	}
+
+	// Если после 30 секунд все еще нет связи — падаем
 	if err := db.Ping(); err != nil {
-		log.Printf("Warning: Database not ready yet (normal for first docker-compose run): %v", err)
-	} else {
-		log.Println("Connected to PostgreSQL")
+		log.Fatalf("Could not connect to database after retries: %v", err)
 	}
 
 	// 3. Init Infrastructure
