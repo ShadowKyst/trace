@@ -20,6 +20,7 @@ import CommandPalette from '../components/CommandPalette.vue';
 import SettingsModal from '../components/SettingsModal.vue';
 import PasswordPrompt from '../components/PasswordPrompt.vue';
 import PasteCreatedModal from '../components/PasteCreatedModal.vue';
+import NotFound from '../components/NotFound.vue';
 
 // --- State ---
 const content = ref('');
@@ -34,6 +35,7 @@ const route = useRoute();
 const router = useRouter();
 
 const isSettingsOpen = ref(false);
+const isNotFound = ref(false); // Новый стейт
 const showPasswordPrompt = ref(false);
 const settings = ref({
   ttl: 1209600, // 2 weeks
@@ -89,27 +91,27 @@ const savePaste = async () => {
 const loadPaste = async (id: string, pwd?: string) => {
   isLoading.value = true;
   isReadOnly.value = true;
-  showPasswordPrompt.value = false; // Сброс
-  statusMessage.value = 'Loading...';
+  showPasswordPrompt.value = false;
+  isNotFound.value = false; // Сбрасываем перед загрузкой
+  statusMessage.value = 'Connecting to uplink...';
   
   try {
     const paste = await api.getPaste(id, pwd);
     content.value = paste.content;
     languageName.value = paste.language;
-    statusMessage.value = '';
+    statusMessage.value = ''; // Успех, убираем статус
     
     if (paste.burn_after_reading) {
         statusMessage.value = '🔥 Burned after reading';
     }
   } catch (e: any) {
-    // UPDATED: Обработка защиты паролем
     if (e.status === 403 && e.isProtected) {
       showPasswordPrompt.value = true;
-      statusMessage.value = 'Password required';
-      content.value = ''; // Скрываем контент
+      statusMessage.value = 'Encryption detected';
     } else {
-      statusMessage.value = 'Not found';
-      content.value = '// Error 404: Data not found in the void.';
+      // ВОТ ТУТ МЕНЯЕМ ЛОГИКУ:
+      isNotFound.value = true; 
+      statusMessage.value = 'Signal lost';
     }
   } finally {
     isLoading.value = false;
@@ -117,9 +119,11 @@ const loadPaste = async (id: string, pwd?: string) => {
 };
 
 const newPaste = () => {
+  isNotFound.value = false; // Скрываем 404
+  showPasswordPrompt.value = false;
   content.value = '';
   isReadOnly.value = false;
-  languageName.value = 'Plain Text'; // Reset
+  languageName.value = 'Plain Text';
   statusMessage.value = '';
   router.push({ name: 'home' });
 };
@@ -234,6 +238,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleGlobalKeydown));
     </header>
 
     <main class="editor-wrap">
+      <NotFound v-if="isNotFound" @home="newPaste" />
       <!-- Показываем промпт пароля ВМЕСТО редактора, если нужно -->
       <PasswordPrompt v-if="showPasswordPrompt" @submit="handlePasswordSubmit" />
       
