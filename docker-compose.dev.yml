@@ -24,7 +24,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       # Автоматически накатим миграцию при старте
-      - ./migrations/001_init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./migrations:/docker-entrypoint-initdb.d
 
 volumes:
   postgres_data:

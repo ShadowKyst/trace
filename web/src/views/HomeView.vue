@@ -8,6 +8,8 @@ import api from '../services/api';
 // UPDATED: Импорты
 import { getExtensionByName } from '../config/languages'; 
 import CommandPalette from '../components/CommandPalette.vue';
+import SettingsModal from '../components/SettingsModal.vue';
+import PasswordPrompt from '../components/PasswordPrompt.vue';
 
 // --- State ---
 const content = ref('');
@@ -20,6 +22,14 @@ const isPaletteOpen = ref(false); // UPDATED: Состояние палитры
 
 const route = useRoute();
 const router = useRouter();
+
+const isSettingsOpen = ref(false);
+const showPasswordPrompt = ref(false);
+const settings = ref({
+  ttl: 1209600, // 2 weeks
+  burn: false,
+  password: ''
+});
 
 // UPDATED: Динамические расширения для редактора
 const extensions = computed(() => {
@@ -35,31 +45,49 @@ const savePaste = async () => {
   statusMessage.value = 'Saving...';
   
   try {
-    // UPDATED: Передаем реальный язык
-    const paste = await api.createPaste(content.value, languageName.value);
+    // UPDATED: Передаем объект настроек
+    const paste = await api.createPaste({
+      content: content.value,
+      language: languageName.value,
+      ttl: settings.value.ttl,
+      password: settings.value.password,
+      burn: settings.value.burn
+    });
     await router.push({ name: 'view', params: { id: paste.id } });
     statusMessage.value = 'Saved!';
   } catch (e) {
     console.error(e);
-    statusMessage.value = 'Error saving paste';
+    statusMessage.value = 'Error saving';
   } finally {
     isSaving.value = false;
   }
 };
 
-const loadPaste = async (id: string) => {
+const loadPaste = async (id: string, pwd?: string) => {
   isLoading.value = true;
   isReadOnly.value = true;
+  showPasswordPrompt.value = false; // Сброс
   statusMessage.value = 'Loading...';
   
   try {
-    const paste = await api.getPaste(id);
+    const paste = await api.getPaste(id, pwd);
     content.value = paste.content;
-    languageName.value = paste.language; // UPDATED: Устанавливаем язык из БД
+    languageName.value = paste.language;
     statusMessage.value = '';
-  } catch (e) {
-    statusMessage.value = 'Paste not found';
-    content.value = '// Error 404: Data not found in the void.';
+    
+    if (paste.burn_after_reading) {
+        statusMessage.value = '🔥 Burned after reading';
+    }
+  } catch (e: any) {
+    // UPDATED: Обработка защиты паролем
+    if (e.status === 403 && e.isProtected) {
+      showPasswordPrompt.value = true;
+      statusMessage.value = 'Password required';
+      content.value = ''; // Скрываем контент
+    } else {
+      statusMessage.value = 'Not found';
+      content.value = '// Error 404: Data not found in the void.';
+    }
   } finally {
     isLoading.value = false;
   }
@@ -88,6 +116,17 @@ const copyLink = async () => {
   await navigator.clipboard.writeText(window.location.href);
   statusMessage.value = 'Link copied!';
   setTimeout(() => statusMessage.value = '', 2000);
+};
+
+const handlePasswordSubmit = (pwd: string) => {
+  // Пробуем загрузить снова с паролем
+  loadPaste(route.params.id as string, pwd);
+};
+
+// Обновление настроек из модалки
+const applySettings = (newSettings: any) => {
+  settings.value = newSettings;
+  statusMessage.value = 'Settings applied';
 };
 
 // --- Lifecycle ---
@@ -126,15 +165,21 @@ onUnmounted(() => window.removeEventListener('keydown', handleGlobalKeydown));
 <template>
   <div class="layout">
     <header class="navbar">
+      <!-- ... Brand ... -->
       <div class="brand" @click="newPaste">
         <span class="logo-text">TRACE</span>
         <span class="status" v-if="statusMessage">:: {{ statusMessage }}</span>
       </div>
-      
+
       <div class="actions">
-        <!-- UPDATED: Показываем текущий язык. Можно кликнуть чтобы открыть палитру -->
+        <!-- Кнопка языка -->
         <button class="btn-text" @click="openPalette" title="Cmd+K">
           {{ languageName }}
+        </button>
+
+        <!-- Кнопка настроек (только в режиме редактирования) -->
+        <button v-if="!isReadOnly" class="btn-icon" @click="isSettingsOpen = true" title="Settings">
+          ⚙️
         </button>
       
         <button v-if="!isReadOnly" class="btn save-btn" @click="savePaste" :disabled="isSaving">
@@ -145,7 +190,11 @@ onUnmounted(() => window.removeEventListener('keydown', handleGlobalKeydown));
     </header>
 
     <main class="editor-container">
+      <!-- Показываем промпт пароля ВМЕСТО редактора, если нужно -->
+      <PasswordPrompt v-if="showPasswordPrompt" @submit="handlePasswordSubmit" />
+      
       <codemirror
+        v-else
         v-model="content"
         placeholder="// Paste your code here..."
         :style="{ height: '100%', fontSize: '14px' }"
@@ -165,10 +214,28 @@ onUnmounted(() => window.removeEventListener('keydown', handleGlobalKeydown));
       @copy-link="copyLink"
       @new-paste="newPaste"
     />
+    <SettingsModal 
+      :is-open="isSettingsOpen" 
+      :defaults="settings"
+      @close="isSettingsOpen = false"
+      @apply="applySettings"
+    />
   </div>
 </template>
 
 <style scoped>
+.btn-icon {
+  background: transparent;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  margin-right: 1rem;
+  padding: 0.2rem;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+.btn-icon:hover { background: rgba(255,255,255,0.1); }
+
 .btn-text {
   background: transparent;
   border: 1px solid var(--border);
