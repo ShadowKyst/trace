@@ -1,0 +1,67 @@
+:root {
+  --bg-primary: #09090b;   /* Почти черный */
+  --bg-secondary: #18181b; /* Темно-серый для панелей */
+  --text-main: #e4e4e7;
+  --text-muted: #a1a1aa;
+  --accent: #8b5cf6;       /* Neon Purple */
+  --accent-glow: rgba(139, 92, 246, 0.5);
+  --border: #27272a;
+  
+  --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-primary); 
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border); 
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent); 
+}
+
+/* Utility classes */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  font-family: var(--font-sans);
+}
+
+.btn:hover {
+  box-shadow: 0 0 15px var(--accent-glow);
+  transform: translateY(-1px);
+}
