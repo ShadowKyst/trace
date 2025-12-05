@@ -160,14 +160,29 @@ const applySettings = (newSettings: any) => {
 
 // UPDATED: Global Hotkeys
 const handleGlobalKeydown = (e: KeyboardEvent) => {
-  // Ctrl+K or Cmd+K
-  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-    e.preventDefault();
-    isPaletteOpen.value = !isPaletteOpen.value;
+  // Игнорируем события, если они происходят внутри инпутов (кроме нашего редактора)
+  // Но для Ctrl+K делаем исключение, чтобы он работал везде
+  const target = e.target as HTMLElement;
+  const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+  
+  // --- Command Palette (Ctrl+K / Cmd+K) ---
+  // Используем e.code === 'KeyK', чтобы ловить клавишу независимо от раскладки/Caps Lock
+  if ((e.ctrlKey || e.metaKey) && e.code === 'KeyK') {
+    e.preventDefault();  // САМОЕ ВАЖНОЕ: Отменяем фокус в браузерную строку
+    e.stopPropagation(); // Останавливаем всплытие события
+    
+    // Переключаем палитру
+    if (isPaletteOpen.value) {
+      closePalette();
+    } else {
+      openPalette();
+    }
+    return;
   }
-  // Ctrl+S or Cmd+S to save
-  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-    e.preventDefault();
+
+  // --- Save (Ctrl+S / Cmd+S) ---
+  if ((e.ctrlKey || e.metaKey) && e.code === 'KeyS') {
+    e.preventDefault(); // Чтобы браузер не предлагал "Сохранить страницу как..."
     if (!isReadOnly.value) savePaste();
   }
 };
