@@ -21,29 +21,32 @@ func NewPasteRepository(db *sql.DB) *PasteRepository {
 
 func (r *PasteRepository) Store(p *domain.Paste) error {
 	query := `
-		INSERT INTO pastes (id, content, language, hash, views, expires_at, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO pastes (id, content, language, hash, views, expires_at, created_at, password_hash, burn_after_reading)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
-	// Используем context с таймаутом для безопасности
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
+	// Обработка NULL для password_hash
+	var pwdHash sql.NullString
+	if p.PasswordHash != "" {
+		pwdHash = sql.NullString{String: p.PasswordHash, Valid: true}
+	}
+
 	_, err := r.db.ExecContext(ctx, query,
-		p.ID,
-		p.Content,
-		p.Language,
-		p.Hash,
-		p.Views,
-		p.ExpiresAt,
-		p.CreatedAt,
+		p.ID, p.Content, p.Language, p.Hash, p.Views, p.ExpiresAt, p.CreatedAt,
+		pwdHash, p.BurnAfterReading,
 	)
 	return err
 }
 
 func (r *PasteRepository) GetByID(id string) (*domain.Paste, error) {
+	// Добавляем проверку на expires_at в сам запрос.
+	// Если паста протухла, база её просто не найдет.
 	query := `
-		SELECT id, content, language, hash, views, expires_at, created_at
-		FROM pastes WHERE id = $1
+		SELECT id, content, language, hash, views, expires_at, created_at, password_hash, burn_after_reading
+		FROM pastes 
+		WHERE id = $1 AND (expires_at IS NULL OR expires_at > NOW())
 	`
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -51,25 +54,23 @@ func (r *PasteRepository) GetByID(id string) (*domain.Paste, error) {
 	row := r.db.QueryRowContext(ctx, query, id)
 
 	var p domain.Paste
-	// Сканируем данные. expires_at может быть NULL, поэтому используем sql.NullTime или указатель
-	// Но pgx/stdlib умеет мапить NULL в *time.Time, попробуем напрямую.
-	// Если возникнут проблемы, можно использовать sql.NullTime для expires_at.
+	var pwdHash sql.NullString
 
 	err := row.Scan(
-		&p.ID,
-		&p.Content,
-		&p.Language,
-		&p.Hash,
-		&p.Views,
-		&p.ExpiresAt,
-		&p.CreatedAt,
+		&p.ID, &p.Content, &p.Language, &p.Hash, &p.Views, &p.ExpiresAt, &p.CreatedAt,
+		&pwdHash, &p.BurnAfterReading,
 	)
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.New("paste not found") // Можно создать кастомную ошибку domain.ErrNotFound
+			return nil, errors.New("paste not found or expired")
 		}
 		return nil, err
+	}
+
+	if pwdHash.Valid {
+		p.PasswordHash = pwdHash.String
+		p.IsProtected = true
 	}
 
 	return &p, nil
@@ -81,5 +82,14 @@ func (r *PasteRepository) Delete(id string) error {
 	defer cancel()
 
 	_, err := r.db.ExecContext(ctx, query, id)
+	return err
+}
+
+func (r *PasteRepository) Cleanup() error {
+	query := `DELETE FROM pastes WHERE expires_at < NOW()`
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx, query)
 	return err
 }

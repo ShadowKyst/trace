@@ -55,6 +55,17 @@ func main() {
 
 	// 3. Init Infrastructure
 	repo := postgres.NewPasteRepository(db) // Используем Postgres!
+
+	go func() {
+        ticker := time.NewTicker(1 * time.Minute)
+        defer ticker.Stop()
+        for range ticker.C {
+            if err := repo.Cleanup(); err != nil {
+                log.Printf("Error cleaning up expired pastes: %v", err)
+            }
+        }
+    }()
+	
 	idGen := nanoid.NewGenerator()
 
 	timeoutContext := 2 * time.Second

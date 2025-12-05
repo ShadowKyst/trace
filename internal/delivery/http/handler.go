@@ -28,7 +28,9 @@ func NewHandler(e *echo.Echo, uc domain.PasteUseCase) {
 type createRequest struct {
 	Content  string `json:"content"`
 	Language string `json:"language"`
-	TTL      int64  `json:"ttl"` // В секундах, опционально
+	TTL      int64  `json:"ttl"`      // Seconds
+	Password string `json:"password"` // Optional
+	Burn     bool   `json:"burn"`     // Optional
 }
 
 func (h *Handler) CreatePaste(c echo.Context) error {
@@ -39,7 +41,8 @@ func (h *Handler) CreatePaste(c echo.Context) error {
 
 	ttl := time.Duration(req.TTL) * time.Second
 
-	paste, err := h.useCase.Create(req.Content, req.Language, ttl)
+	// Передаем новые параметры
+	paste, err := h.useCase.Create(req.Content, req.Language, req.Password, ttl, req.Burn)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
@@ -49,11 +52,23 @@ func (h *Handler) CreatePaste(c echo.Context) error {
 
 func (h *Handler) GetPaste(c echo.Context) error {
 	id := c.Param("id")
+	// Пароль может прийти в Query параметре ?password=... или заголовке X-Password
+	// Для простоты возьмем из Query пока
+	password := c.QueryParam("password")
 
-	paste, err := h.useCase.Get(id)
+	paste, err := h.useCase.Get(id, password)
 	if err != nil {
-		// В реальном проекте тут стоит проверять тип ошибки (Not Found vs Internal)
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "Paste not found"})
+		if err.Error() == "paste not found or expired" {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "Paste not found"})
+		}
+		// Если нужен пароль, возвращаем 403 Forbidden но с телом ответа (чтобы фронт понял)
+		if err.Error() == "password required" {
+			return c.JSON(http.StatusForbidden, paste) // paste тут без контента, но с IsProtected=true
+		}
+		if err.Error() == "invalid password" {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid password"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, paste)
