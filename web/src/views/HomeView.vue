@@ -8,6 +8,7 @@ import {
   Eye, Code as CodeIcon // Новые иконки (Code переименовали, т.к. конфликт имен может быть)
 } from 'lucide-vue-next';
 import { detectLanguage } from '../utils/detector';
+import { EditorView } from '@codemirror/view';
 import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
 
@@ -47,13 +48,21 @@ const showPasswordPrompt = ref(false);
 const settings = ref({
   ttl: 1209600, // 2 weeks
   burn: false,
-  password: ''
+  password: '',
+  wordWrap: false
 });
 
 // UPDATED: Динамические расширения для редактора
 const extensions = computed(() => {
   const langExt = getExtensionByName(languageName.value);
-  return [oneDark, langExt];
+  const exts = [oneDark, langExt];
+  
+  // Если включен перенос строк — добавляем расширение
+  if (settings.value.wordWrap) {
+    exts.push(EditorView.lineWrapping);
+  }
+  
+  return exts;
 });
 
 const renderedMarkdown = computed(() => {
@@ -255,6 +264,16 @@ watch(
 watch(content, (newVal) => {
   if (!isReadOnly.value) {
     debouncedDetect(newVal);
+  }
+});
+
+watch(languageName, (newLang) => {
+  if (newLang === 'Plain Text' || newLang === 'Markdown') {
+    settings.value.wordWrap = true;
+  } else {
+    // Для кода обычно удобнее без переноса, но можно убрать этот else, 
+    // если хочешь сохранять выбор пользователя
+    settings.value.wordWrap = false; 
   }
 });
 

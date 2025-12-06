@@ -3,12 +3,12 @@ import { ref, watch } from 'vue';
 
 const props = defineProps<{
   isOpen: boolean;
-  defaults: { ttl: number; burn: boolean; password: string };
+  defaults: { ttl: number; burn: boolean; password: string; wordWrap: boolean; };
 }>();
 
 const emit = defineEmits<{
   (e: 'close'): void;
-  (e: 'apply', settings: { ttl: number; burn: boolean; password: string }): void;
+  (e: 'apply', settings: { ttl: number; burn: boolean; password: string; wordWrap: boolean }): void;
 }>();
 
 // Варианты TTL в секундах
@@ -23,6 +23,7 @@ const form = ref({
   ttl: 1209600, // Default 2 weeks
   burn: false,
   password: '',
+  wordWrap: false
 });
 
 // Синхронизация при открытии
@@ -61,6 +62,14 @@ const save = () => {
           autocomplete="new-password"
         >
       </div>
+
+      <div class="field checkbox-field">
+        <label>
+        <input type="checkbox" v-model="form.wordWrap">
+        <span>Word Wrap</span>
+        </label>
+        <p class="hint">Break long lines to fit the screen.</p>
+    </div>
 
       <div class="field checkbox-field">
         <label>
