@@ -59,7 +59,7 @@ The easiest way to run Trace is using Docker Compose.
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/YOUR_USERNAME/trace.git
+git clone https://github.com/shadowkyst/trace.git
 cd trace
 
 # 2. Run in Production mode (Nginx + App + DB)
