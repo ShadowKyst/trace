@@ -1,0 +1,21 @@
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Go
+trace-api
+trace-api.exe
+vendor/
+
+# Node / Frontend
+web/node_modules/
+web/dist/
+web/.env.local
+
+# Docker & DB
+postgres_data/
+
+# OS
+.DS_Store
+Thumbs.db
