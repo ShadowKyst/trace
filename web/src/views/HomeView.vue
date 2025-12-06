@@ -12,6 +12,7 @@ import {
   Lock,
   FileText 
 } from 'lucide-vue-next';
+import { detectLanguage } from '../utils/detector';
 
 import api from '../services/api';
 
@@ -22,6 +23,7 @@ import SettingsModal from '../components/SettingsModal.vue';
 import PasswordPrompt from '../components/PasswordPrompt.vue';
 import PasteCreatedModal from '../components/PasteCreatedModal.vue';
 import NotFound from '../components/NotFound.vue';
+
 
 // --- State ---
 const content = ref('');
@@ -37,6 +39,7 @@ const router = useRouter();
 
 const isSettingsOpen = ref(false);
 const isNotFound = ref(false); // Новый стейт
+const isManuallySelected = ref(false); 
 const showPasswordPrompt = ref(false);
 const settings = ref({
   ttl: 1209600, // 2 weeks
@@ -55,6 +58,34 @@ const createdPasteUrl = ref('');
 const createdPasteBurn = ref(false);
 
 // --- Logic ---
+
+const debounce = (fn: Function, ms: number) => {
+  let timeoutId: any;
+  return (...args: any[]) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), ms);
+  };
+};
+
+const tryAutoDetect = (newContent: string) => {
+  // Если пользователь выбрал язык сам — не мешаем ему
+  if (isManuallySelected.value) return;
+  
+  // Если контента нет, ничего не делаем
+  if (!newContent.trim()) return;
+
+  const detected = detectLanguage(newContent);
+  
+  // Если определили что-то новое, чего у нас еще нет
+  if (detected && detected !== languageName.value) {
+    languageName.value = detected;
+    statusMessage.value = `Detected: ${detected}`;
+    setTimeout(() => statusMessage.value = '', 2000);
+  }
+};
+
+// Создаем debounced версию (ждем 500мс после остановки ввода)
+const debouncedDetect = debounce(tryAutoDetect, 500);
 
 const openRaw = () => {
   // Если паста защищена, нужно бы спросить пароль, но для Raw View
@@ -127,11 +158,14 @@ const loadPaste = async (id: string, pwd?: string) => {
 };
 
 const newPaste = () => {
-  isNotFound.value = false; // Скрываем 404
+  isNotFound.value = false;
   showPasswordPrompt.value = false;
   content.value = '';
   isReadOnly.value = false;
+  
   languageName.value = 'Plain Text';
+  isManuallySelected.value = false; // СБРОС ФЛАГА
+  
   statusMessage.value = '';
   router.push({ name: 'home' });
 };
@@ -142,9 +176,8 @@ const closePalette = () => isPaletteOpen.value = false;
 
 const setLanguage = (name: string) => {
   languageName.value = name;
-  statusMessage.value = `Language: ${name}`;
-  // Если мы в режиме редактирования, ничего не делаем, если просмотра - не даем менять (или даем?)
-  // Лучше пока просто менять подсветку.
+  isManuallySelected.value = true; // Пользователь выбрал сам, блокируем автодетект
+  statusMessage.value = `Language set to ${name}`;
 };
 
 const copyLink = async () => {
@@ -203,10 +236,17 @@ watch(
       isReadOnly.value = false;
       content.value = '';
       languageName.value = 'Plain Text';
+      isManuallySelected.value = false; // СБРОС ФЛАГА
     }
   },
   { immediate: true }
 );
+
+watch(content, (newVal) => {
+  if (!isReadOnly.value) {
+    debouncedDetect(newVal);
+  }
+});
 
 onMounted(() => window.addEventListener('keydown', handleGlobalKeydown));
 onUnmounted(() => window.removeEventListener('keydown', handleGlobalKeydown));
