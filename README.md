@@ -16,7 +16,7 @@
     <img src="https://img.shields.io/badge/License-MIT-yellow?style=flat-square" alt="License">
   </p>
 
-  <img src="https://placehold.co/1200x600/09090b/6366f1?text=App+Screenshot+Here" alt="Trace App Preview" width="100%" style="border-radius: 10px; border: 1px solid #333;">
+  <img src="https://raw.githubusercontent.com/ShadowKyst/trace/refs/heads/main/assets/main_page.png" alt="Trace App Preview" width="100%" style="border-radius: 10px; border: 1px solid #333;">
 </div>
 
 <br>
