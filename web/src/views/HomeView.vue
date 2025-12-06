@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { Codemirror } from 'vue-codemirror';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { 
-  Settings, Save, Plus, ChevronDown, Copy, Lock, FileText,
+  Settings, Save, Plus, ChevronDown, FileText,
   Eye, Code as CodeIcon // Новые иконки (Code переименовали, т.к. конфликт имен может быть)
 } from 'lucide-vue-next';
 import { detectLanguage } from '../utils/detector';
@@ -215,11 +215,6 @@ const applySettings = (newSettings: any) => {
 
 // UPDATED: Global Hotkeys
 const handleGlobalKeydown = (e: KeyboardEvent) => {
-  // Игнорируем события, если они происходят внутри инпутов (кроме нашего редактора)
-  // Но для Ctrl+K делаем исключение, чтобы он работал везде
-  const target = e.target as HTMLElement;
-  const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
-  
   // --- Command Palette (Ctrl+K / Cmd+K) ---
   // Используем e.code === 'KeyK', чтобы ловить клавишу независимо от раскладки/Caps Lock
   if ((e.ctrlKey || e.metaKey) && e.code === 'KeyK') {

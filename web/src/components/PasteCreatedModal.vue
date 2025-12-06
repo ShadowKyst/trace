@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { Copy, Check, ExternalLink } from 'lucide-vue-next';
+import { Copy, Check } from 'lucide-vue-next';
 
 const props = defineProps<{
   isOpen: boolean;
