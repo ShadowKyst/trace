@@ -9,7 +9,8 @@ import {
   Plus, 
   ChevronDown, 
   Copy, 
-  Lock 
+  Lock,
+  FileText 
 } from 'lucide-vue-next';
 
 import api from '../services/api';
@@ -54,6 +55,13 @@ const createdPasteUrl = ref('');
 const createdPasteBurn = ref(false);
 
 // --- Logic ---
+
+const openRaw = () => {
+  // Если паста защищена, нужно бы спросить пароль, но для Raw View
+  // мы просто открываем ссылку. Если нужен пароль, юзер увидит 403 текст.
+  const url = `/raw/${route.params.id}`;
+  window.open(url, '_blank');
+};
 
 const savePaste = async () => {
   if (!content.value.trim()) return;
@@ -229,6 +237,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleGlobalKeydown));
           <button class="btn-ghost" @click="openPalette" title="Change Language">
             {{ languageName }}
             <ChevronDown :size="14" class="icon-right" />
+          </button>
+
+          <button v-if="isReadOnly" class="btn-icon" @click="openRaw" title="Raw View">
+            <FileText :size="18" />
           </button>
 
           <!-- Settings -->

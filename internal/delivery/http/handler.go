@@ -22,6 +22,7 @@ func NewHandler(e *echo.Echo, uc domain.PasteUseCase) {
 	api := e.Group("/api/v1")
 	api.POST("/paste", h.CreatePaste)
 	api.GET("/paste/:id", h.GetPaste)
+	e.GET("/raw/:id", h.GetRawPaste)
 }
 
 // createRequest - DTO для входящего запроса
@@ -72,4 +73,27 @@ func (h *Handler) GetPaste(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, paste)
+}
+
+func (h *Handler) GetRawPaste(c echo.Context) error {
+	id := c.Param("id")
+	// Поддержка пароля через Query param: curl trace.io/raw/123?password=secret
+	password := c.QueryParam("password")
+
+	paste, err := h.useCase.Get(id, password)
+	if err != nil {
+		if err.Error() == "paste not found or expired" {
+			return c.String(http.StatusNotFound, "404: Paste not found")
+		}
+		if err.Error() == "password required" {
+			return c.String(http.StatusForbidden, "403: Password required (?password=...)")
+		}
+		if err.Error() == "invalid password" {
+			return c.String(http.StatusUnauthorized, "401: Invalid password")
+		}
+		return c.String(http.StatusInternalServerError, "500: Internal Server Error")
+	}
+
+	// Возвращаем чистый текст
+	return c.String(http.StatusOK, paste.Content)
 }
