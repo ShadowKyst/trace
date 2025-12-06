@@ -4,15 +4,12 @@ import { useRoute, useRouter } from 'vue-router';
 import { Codemirror } from 'vue-codemirror';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { 
-  Settings, 
-  Save, 
-  Plus, 
-  ChevronDown, 
-  Copy, 
-  Lock,
-  FileText 
+  Settings, Save, Plus, ChevronDown, Copy, Lock, FileText,
+  Eye, Code as CodeIcon // Новые иконки (Code переименовали, т.к. конфликт имен может быть)
 } from 'lucide-vue-next';
 import { detectLanguage } from '../utils/detector';
+import MarkdownIt from 'markdown-it';
+import DOMPurify from 'dompurify';
 
 import api from '../services/api';
 
@@ -33,6 +30,12 @@ const isLoading = ref(false);
 const isSaving = ref(false);
 const statusMessage = ref('');
 const isPaletteOpen = ref(false); // UPDATED: Состояние палитры
+const isPreviewMode = ref(false);
+const md = new MarkdownIt({
+  html: false, // Отключаем сырой HTML для безопасности
+  linkify: true, // Автоссылки
+  breaks: true, // Переносы строк
+});
 
 const route = useRoute();
 const router = useRouter();
@@ -53,11 +56,21 @@ const extensions = computed(() => {
   return [oneDark, langExt];
 });
 
+const renderedMarkdown = computed(() => {
+  if (!content.value) return '';
+  const rawHtml = md.render(content.value);
+  return DOMPurify.sanitize(rawHtml); // Очистка от XSS
+});
+
 const showCreatedModal = ref(false);
 const createdPasteUrl = ref('');
 const createdPasteBurn = ref(false);
 
 // --- Logic ---
+
+const togglePreview = () => {
+  isPreviewMode.value = !isPreviewMode.value;
+};
 
 const debounce = (fn: Function, ms: number) => {
   let timeoutId: any;
@@ -158,6 +171,7 @@ const loadPaste = async (id: string, pwd?: string) => {
 };
 
 const newPaste = () => {
+  isPreviewMode.value = false;
   isNotFound.value = false;
   showPasswordPrompt.value = false;
   content.value = '';
@@ -231,6 +245,7 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
 watch(
   () => route.params.id,
   (newId) => {
+    isPreviewMode.value = false;
     if (newId) loadPaste(newId as string);
     else {
       isReadOnly.value = false;
@@ -279,6 +294,19 @@ onUnmounted(() => window.removeEventListener('keydown', handleGlobalKeydown));
             <ChevronDown :size="14" class="icon-right" />
           </button>
 
+          <button 
+            v-if="languageName === 'Markdown'" 
+            class="btn-icon" 
+            @click="togglePreview" 
+            :title="isPreviewMode ? 'Edit Code' : 'Preview Markdown'"
+          >
+            <CodeIcon v-if="isPreviewMode" :size="18" />
+            <Eye v-else :size="18" />
+          </button>
+
+        <!-- Divider -->
+        <div class="divider" v-if="languageName === 'Markdown'"></div>
+
           <button v-if="isReadOnly" class="btn-icon" @click="openRaw" title="Raw View">
             <FileText :size="18" />
           </button>
@@ -308,6 +336,11 @@ onUnmounted(() => window.removeEventListener('keydown', handleGlobalKeydown));
       <NotFound v-if="isNotFound" @home="newPaste" />
       <!-- Показываем промпт пароля ВМЕСТО редактора, если нужно -->
       <PasswordPrompt v-if="showPasswordPrompt" @submit="handlePasswordSubmit" />
+      <div 
+        v-else-if="isPreviewMode" 
+        class="markdown-preview"
+        v-html="renderedMarkdown"
+      ></div>
       
       <codemirror
         v-else
@@ -478,4 +511,79 @@ onUnmounted(() => window.removeEventListener('keydown', handleGlobalKeydown));
 /* Переопределяем фон CodeMirror, чтобы он был прозрачным */
 :deep(.cm-editor) { background-color: transparent !important; }
 :deep(.cm-gutters) { background-color: transparent !important; border-right: 1px solid rgba(255,255,255,0.05); }
+.markdown-preview {
+  height: 100%;
+  overflow-y: auto;
+  padding: 2rem;
+  color: var(--text-main);
+  line-height: 1.6;
+  font-family: var(--font-sans);
+}
+
+/* Typography inside Markdown */
+:deep(.markdown-preview h1),
+:deep(.markdown-preview h2),
+:deep(.markdown-preview h3) {
+  color: var(--text-main);
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+:deep(.markdown-preview h1) { font-size: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+:deep(.markdown-preview h2) { font-size: 1.5rem; }
+:deep(.markdown-preview h3) { font-size: 1.25rem; }
+
+:deep(.markdown-preview p) { margin-bottom: 1rem; color: var(--text-muted); }
+
+:deep(.markdown-preview a) { color: var(--primary); text-decoration: none; }
+:deep(.markdown-preview a:hover) { text-decoration: underline; }
+
+:deep(.markdown-preview ul), 
+:deep(.markdown-preview ol) { margin-left: 1.5rem; margin-bottom: 1rem; color: var(--text-muted); }
+
+:deep(.markdown-preview code) {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  color: var(--secondary);
+}
+
+:deep(.markdown-preview pre) {
+  background: var(--bg-deep);
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+
+:deep(.markdown-preview pre code) {
+  background: transparent;
+  padding: 0;
+  color: var(--text-main);
+}
+
+:deep(.markdown-preview blockquote) {
+  border-left: 4px solid var(--primary);
+  margin: 0 0 1rem 0;
+  padding-left: 1rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+:deep(.markdown-preview img) {
+  max-width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+:deep(.markdown-preview hr) {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2rem 0;
+}
 </style>
